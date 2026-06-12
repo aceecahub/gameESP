@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pronunciation Battle - Metal Slug Style</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        @font-face {
+            font-family: 'Pixel';
+            src: local('Courier New'), local('monospace');
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Courier New', monospace;
+            min-height: 100vh;
+            background: #0d0d0d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            overflow: hidden;
+        }
+
+        /* CRT Effect Overlay */
+        .crt-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 1000;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0,0,0,0.15) 0px,
+                rgba(0,0,0,0.15) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            opacity: 0.3;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 900px;
+            background: #1a1a1a;
+            border: 3px solid #4a4a4a;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* BATTLE SCENE */
+        .battle-scene {
+            position: relative;
+            height: 320px;
+            background: linear-gradient(180deg, #2a1a0a 0%, #1a0a0a 40%, #0d0d0d 100%);
+            overflow: hidden;
+        }
+
+        /* Pixel ground */
+        .ground {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 60px;
+            background: repeating-linear-gradient(
+                90deg,
+                #3a2a1a 0px, #3a2a1a 8px,
+                #4a3a2a 8px, #4a3a2a 16px
+            );
+            border-top: 4px solid #5a4a3a;
+        }
+
+        /* Background elements */
+        .bg-building {
+            position: absolute;
+            bottom: 60px;
+            width: 80px;
+            height: 120px;
+            background: #2a2a2a;
+            border: 2px solid #3a3a3a;
+        }
+        .bg-building::before {
+            content: '';
+            position: absolute;
+            top: 10px; left: 10px;
+            width: 15px; height: 20px;
+            background: #1a1a1a;
+            box-shadow: 35px 0 #1a1a1a, 0 30px #1a1a1a, 35px 30px #1a1a1a;
+        }
+        .bg-building:nth-child(1) { left: 50px; height: 100px; }
+        .bg-building:nth-child(2) { left: 200px; height: 150px; width: 60px; }
+        .bg-building:nth-child(3) { right: 100px; height: 80px; }
+
+        /* Character positioning */
+        .char-wrapper {
+            position: absolute;
+            bottom: 60px;
+            transition: all 0.1s;
+        }
+
+        .hero-wrapper {
+            left: 60px;
+            z-index: 10;
+        }
+
+        .monster-wrapper {
+            right: 60px;
+            z-index: 10;
+        }
+
+        .char-img {
+            height: 180px;
+            width: auto;
+            image-rendering: pixelated;
+            filter: contrast(1.1) brightness(1.05);
+        }
+
+        /* Shooting animation */
+        .hero-wrapper.shooting {
+            transform: translateX(15px);
+        }
+
+        .monster-wrapper.hit {
+            animation: monsterHit 0.3s ease;
+        }
+
+        @keyframes monsterHit {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-20px) rotate(-5deg); }
+            50% { transform: translateX(10px); }
+            75% { transform: translateX(-10px); }
+        }
+
+        .hero-wrapper.hit {
+            animation: heroHit 0.3s ease;
+        }
+
+        @keyframes heroHit {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(20px) rotate(5deg); }
+            50% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        /* Projectiles */
+        .projectile {
+            position: absolute;
+            width: 24px;
+            height: 6px;
+            background: #ff6600;
+            border: 1px solid #ffaa00;
+            box-shadow: 0 0 8px #ff6600, 0 0 16px #ff3300;
+            z-index: 20;
+            top: 50%;
+        }
+
+        .projectile-monster {
+            background: #00ff66;
+            border: 1px solid #66ffaa;
+            box-shadow: 0 0 8px #00ff66, 0 0 16px #00ff33;
+        }
+
+        /* Explosion effect */
+        .explosion {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            z-index: 25;
+            pointer-events: none;
+        }
+
+        .explosion::before {
+            content: '💥';
+            font-size: 50px;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Health Bars - Metal Slug Style */
+        .health-section {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: #0a0a0a;
+            border-bottom: 2px solid #333;
+        }
+
+        .health-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .health-label {
+            color: #888;
+            font-size: 0.7rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .health-bar-outer {
+            width: 200px;
+            height: 20px;
+            background: #1a1a1a;
+            border: 2px solid #444;
+            position: relative;
+        }
+
+        .health-bar-inner {
+            height: 100%;
+            transition: width 0.4s ease;
+            position: relative;
+        }
+
+        .hero-health .health-bar-inner {
+            background: linear-gradient(90deg, #ff3333 0%, #ff6666 100%);
+        }
+
+        .monster-health .health-bar-inner {
+            background: linear-gradient(90deg, #33ff33 0%, #66ff66 100%);
+        }
+
+        .health-bar-inner::after {
+            content: '';
+            position: absolute;
+            top: 2px; left: 2px; right: 2px;
+            height: 4px;
+            background: rgba(255,255,255,0.3);
+        }
+
+        .health-text {
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: bold;
+            min-width: 40px;
+        }
+
+        /* Attempts counter */
+        .attempts-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #1a1a1a;
+            padding: 8px 16px;
+            border: 2px solid #444;
+        }
+
+        .attempts-label {
+            color: #888;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+
+        .attempts-count {
+            color: #ffaa00;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        /* Word Display Area */
+        .word-area {
+            padding: 24px 20px;
+            text-align: center;
+            background: #111;
+            border-bottom: 2px solid #333;
+        }
+
+        .word-display {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        .phonetic-display {
+            color: #888;
+            font-size: 1rem;
+            font-family: Georgia, serif;
+            font-style: italic;
+        }
+
+        /* Control Area */
+        .control-area {
+            padding: 20px;
+            text-align: center;
+            background: #0d0d0d;
+        }
+
+        .btn-mic {
+            background: #ff6600;
+            color: #fff;
+            border: none;
+            padding: 16px 48px;
+            font-size: 1.1rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            border: 3px solid #ff8833;
+            box-shadow: 0 4px 0 #cc4400, 0 6px 12px rgba(0,0,0,0.5);
+            transition: all 0.1s;
+            position: relative;
+            font-family: inherit;
+        }
+
+        .btn-mic:hover {
+            background: #ff7733;
+        }
+
+        .btn-mic:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #cc4400, 0 2px 6px rgba(0,0,0,0.5);
+        }
+
+        .btn-mic.recording {
+            background: #cc0000;
+            border-color: #ff3333;
+            box-shadow: 0 4px 0 #990000, 0 6px 12px rgba(0,0,0,0.5);
+            animation: btnPulse 0.5s infinite alternate;
+        }
+
+        @keyframes btnPulse {
+            from { opacity: 1; }
+            to { opacity: 0.7; }
+        }
+
+        .result-message {
+            margin-top: 16px;
+            font-size: 1rem;
+            font-weight: 600;
+            min-height: 30px;
+        }
+
+        .result-correct {
+            color: #33ff33;
+        }
+
+        .result-wrong {
+            color: #ff3333;
+        }
+
+        .hint-box {
+            margin-top: 8px;
+            padding: 10px 16px;
+            background: #1a1a1a;
+            border-left: 4px solid #ff6600;
+            color: #aaa;
+            font-size: 0.85rem;
+            text-align: left;
+            display: inline-block;
+        }
+
+        /* Screens */
+        .screen { display: none; }
+        .active { display: block; }
+
+        /* Menu Screen */
+        .menu-screen {
+            text-align: center;
+            padding: 40px 20px;
+            background: #0d0d0d;
+        }
+
+        .game-title {
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: #ff6600;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 8px;
+            text-shadow: 3px 3px 0 #000, 0 0 20px rgba(255,102,0,0.3);
+        }
+
+        .game-subtitle {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 40px;
+            letter-spacing: 2px;
+        }
+
+        .btn-start {
+            background: #ff6600;
+            color: #fff;
+            border: none;
+            padding: 18px 60px;
+            font-size: 1.3rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            cursor: pointer;
+            border: 3px solid #ff8833;
+            box-shadow: 0 6px 0 #cc4400, 0 8px 16px rgba(0,0,0,0.5);
+            transition: all 0.1s;
+            font-family: inherit;
+        }
+
+        .btn-start:hover {
+            background: #ff7733;
+        }
+
+        .btn-start:active {
+            transform: translateY(6px);
+            box-shadow: 0 0 0 #cc4400, 0 2px 6px rgba(0,0,0,0.5);
+        }
+
+        .instructions {
+            margin-top: 30px;
+            color: #666;
+            font-size: 0.8rem;
+            line-height: 1.8;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .instructions strong {
+            color: #ff6600;
+        }
+
+        /* Game Over / Victory Screens */
+        .overlay-screen {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .overlay-title {
+            font-size: 3rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 20px;
+        }
+
+        .victory .overlay-title { color: #ff6600; text-shadow: 0 0 30px rgba(255,102,0,0.5); }
+        .defeat .overlay-title { color: #ff3333; text-shadow: 0 0 30px rgba(255,51,51,0.5); }
+
+        .overlay-text {
+            color: #888;
+            font-size: 1rem;
+            margin-bottom: 30px;
+        }
+
+        .btn-retry {
+            background: #ff6600;
+            color: #fff;
+            border: none;
+            padding: 14px 40px;
+            font-size: 1rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            border: 3px solid #ff8833;
+            box-shadow: 0 4px 0 #cc4400;
+            font-family: inherit;
+        }
+
+        .btn-retry:hover { background: #ff7733; }
+
+        /* Level indicator */
+        .level-indicator {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: #ffaa00;
+            padding: 6px 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            border: 2px solid #ffaa00;
+            z-index: 30;
+        }
+
+        /* Damage number popup */
+        .damage-popup {
+            position: absolute;
+            font-size: 1.5rem;
+            font-weight: 900;
+            z-index: 50;
+            pointer-events: none;
+            animation: damageFloat 1s ease-out forwards;
+        }
+
+        @keyframes damageFloat {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            50% { opacity: 1; transform: translateY(-40px) scale(1.2); }
+            100% { opacity: 0; transform: translateY(-80px) scale(0.8); }
+        }
+
+        .damage-hero { color: #ff3333; }
+        .damage-monster { color: #ffaa00; }
+
+        /* Muzzle flash */
+        .muzzle-flash {
+            position: absolute;
+            width: 40px;
+            height: 30px;
+            background: radial-gradient(ellipse, #ffaa00 0%, #ff6600 40%, transparent 70%);
+            z-index: 15;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        .muzzle-flash.active {
+            animation: flashAnim 0.1s ease-out;
+        }
+
+        @keyframes flashAnim {
+            0% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(1.5); }
+        }
+
+        /* Shake effect on wrong */
+        .shake {
+            animation: shake 0.4s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-10px); }
+            40% { transform: translateX(10px); }
+            60% { transform: translateX(-5px); }
+            80% { transform: translateX(5px); }
+        }
+    </style>
+<base target="_blank">
+</head>
+<body>
+    <div class="crt-overlay"></div>
+
+    <div class="game-container">
+        <!-- MENU SCREEN -->
+        <div id="menuScreen" class="screen active">
+            <div class="menu-screen">
+                <div class="game-title">🔥 Pronunciation Battle 🔥</div>
+                <div class="game-subtitle">METAL SLUG STYLE</div>
+
+                <button class="btn-start" onclick="startGame()">START MISSION</button>
+
+                <div class="instructions">
+                    <p><strong>MISSION:</strong> Kalahkan monster dengan pelafalan yang tepat!</p>
+                    <p>• Kamu punya <strong>5 nyawa</strong> (5 kesempatan salah)</p>
+                    <p>• Monster punya <strong>10 nyawa</strong> (10 kata benar untuk mengalahkannya)</p>
+                    <p>• Ucapkan kata dengan benar → <strong style="color:#33ff33">TEMBAK MONSTER</strong></p>
+                    <p>• Salah ucapkan → <strong style="color:#ff3333">MONSTER MENEMBAKMU</strong></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- GAME SCREEN -->
+        <div id="gameScreen" class="screen">
+            <!-- Health Section -->
+            <div class="health-section">
+                <div class="health-bar-container hero-health">
+                    <span class="health-label">HERO</span>
+                    <div class="health-bar-outer">
+                        <div class="health-bar-inner" id="heroHealthBar" style="width: 100%"></div>
+                    </div>
+                    <span class="health-text" id="heroHealthText">5/5</span>
+                </div>
+
+                <div class="attempts-box">
+                    <span class="attempts-label">Speak Attempts</span>
+                    <span class="attempts-count" id="attemptsCount">5</span>
+                </div>
+
+                <div class="health-bar-container monster-health">
+                    <span class="health-label">MONSTER</span>
+                    <div class="health-bar-outer">
+                        <div class="health-bar-inner" id="monsterHealthBar" style="width: 100%"></div>
+                    </div>
+                    <span class="health-text" id="monsterHealthText">10/10</span>
+                </div>
+            </div>
+
+            <!-- Battle Scene -->
+            <div class="battle-scene" id="battleScene">
+                <div class="level-indicator" id="levelIndicator">WORD 1 / 10</div>
+
+                <!-- Background -->
+                <div class="bg-building"></div>
+                <div class="bg-building"></div>
+                <div class="bg-building"></div>
+
+                <!-- Ground -->
+                <div class="ground"></div>
+
+                <!-- Hero -->
+                <div class="char-wrapper hero-wrapper" id="heroWrapper">
+                    <img src="img/torik.jpeg" class="char-img" id="heroImg" alt="Hero">
+                    <div class="muzzle-flash" id="heroMuzzle"></div>
+                </div>
+
+                <!-- Monster -->
+                <div class="char-wrapper monster-wrapper" id="monsterWrapper">
+                    <img src="img/image.jpg" class="char-img" id="monsterImg" alt="Monster" style="height: 200px;">
+                    <div class="muzzle-flash" id="monsterMuzzle" style="left: -30px;"></div>
+                </div>
+            </div>
+
+            <!-- Word Area -->
+            <div class="word-area">
+                <div class="word-display" id="targetWord">ISLAND</div>
+                <div class="phonetic-display" id="phoneticHint">/ˈaɪ.lənd/</div>
+            </div>
+
+            <!-- Control Area -->
+            <div class="control-area">
+                <button id="micBtn" class="btn-mic" onclick="toggleSpeech()">🔫 FIRE (SPEAK)</button>
+                <div class="result-message" id="resultMessage"></div>
+            </div>
+
+            <!-- Victory Overlay -->
+            <div class="overlay-screen victory" id="victoryScreen" style="display:none;">
+                <div class="overlay-title">🎉 MISSION COMPLETE!</div>
+                <div class="overlay-text">Monster telah dikalahkan!</div>
+                <button class="btn-retry" onclick="resetGame()">PLAY AGAIN</button>
+            </div>
+
+            <!-- Defeat Overlay -->
+            <div class="overlay-screen defeat" id="defeatScreen" style="display:none;">
+                <div class="overlay-title">💀 GAME OVER</div>
+                <div class="overlay-text">Hero telah dikalahkan oleh monster...</div>
+                <button class="btn-retry" onclick="resetGame()">TRY AGAIN</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const gameData = {
+            1: { word: "Island", phonetic: "/ˈaɪ.lənd/", hint: "Huruf 'S' tidak dibaca. Ucapkan: 'ai-lend'" },
+            2: { word: "Wednesday", phonetic: "/ˈwenz.deɪ/", hint: "Huruf 'd' pertama senyap. Ucapkan: 'wenz-dei'" },
+            3: { word: "Vegetable", phonetic: "/ˈvedʒ.tə.bəl/", hint: "Huruf 'e' kedua tidak dibaca. Ucapkan: 'vedj-te-bel'" },
+            4: { word: "Receipt", phonetic: "/rɪˈsiːt/", hint: "Huruf 'p' senyap. Ucapkan: 'ri-seet'" },
+            5: { word: "Psychology", phonetic: "/saɪˈkɒl.ə.dʒi/", hint: "Huruf 'p' senyap. Ucapkan: 'sai-kol-o-ji'" },
+            6: { word: "Colonel", phonetic: "/ˈkɜː.nəl/", hint: "Bukan 'kolonel', tapi 'ker-nel'" },
+            7: { word: "Yacht", phonetic: "/jɒt/", hint: "Huruf 'ch' tidak dibaca. Ucapkan: 'yot'" },
+            8: { word: "Queue", phonetic: "/kjuː/", hint: "Hanya satu suku kata. Ucapkan: 'kyu'" },
+            9: { word: "Rendezvous", phonetic: "/ˈrɒn.deɪ.vuː/", hint: "Bahasa Prancis. Ucapkan: 'ron-dei-vu'" },
+            10: { word: "Debt", phonetic: "/det/", hint: "Huruf 'b' senyap. Ucapkan: 'det'" }
+        };
+
+        let currentLevel = 1;
+        let heroHealth = 5;
+        let monsterHealth = 10;
+        let isRecording = false;
+        let recognition;
+        let gameActive = false;
+
+        // Speech Recognition
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            recognition.onstart = () => {
+                isRecording = true;
+                const micBtn = document.getElementById('micBtn');
+                micBtn.innerText = "🔴 LISTENING...";
+                micBtn.classList.add('recording');
+                document.getElementById('resultMessage').innerHTML = "";
+            };
+
+            recognition.onresult = (event) => {
+                const userSpeech = event.results[0][0].transcript.toLowerCase().trim().replace(/[.]/g, '');
+                const correctWord = gameData[currentLevel].word.toLowerCase().trim();
+                const resultMessage = document.getElementById('resultMessage');
+
+                console.log("User:", userSpeech, "| Target:", correctWord);
+
+                if (userSpeech === correctWord) {
+                    // BENAR - Hero menembak monster
+                    resultMessage.className = "result-message result-correct";
+                    resultMessage.innerHTML = `<b>🎯 DIRECT HIT!</b> "${userSpeech}" - Monster terkena serangan!`;
+
+                    heroShoot();
+
+                    setTimeout(() => {
+                        monsterHealth--;
+                        updateHealthBars();
+
+                        if (monsterHealth <= 0) {
+                            showVictory();
+                        } else {
+                            currentLevel++;
+                            if (currentLevel <= 10) {
+                                loadWord(currentLevel);
+                            }
+                        }
+                    }, 800);
+                } else {
+                    // SALAH - Monster menembak hero
+                    resultMessage.className = "result-message result-wrong";
+                    resultMessage.innerHTML = `
+                        <b>💥 MISFIRE!</b> Anda mengucapkan "${userSpeech}"<br>
+                        <div class="hint-box"><b>TIPS:</b> ${gameData[currentLevel].hint}</div>
+                    `;
+
+                    monsterShoot();
+
+                    setTimeout(() => {
+                        heroHealth--;
+                        updateHealthBars();
+
+                        if (heroHealth <= 0) {
+                            showDefeat();
+                        }
+                    }, 800);
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error(event.error);
+                document.getElementById('resultMessage').className = "result-message result-wrong";
+                document.getElementById('resultMessage').innerText = "❌ Suara tidak jelas! Coba lagi.";
+                stopMicUI();
+            };
+
+            recognition.onend = () => { stopMicUI(); };
+        } else {
+            alert("Browser tidak mendukung speech recognition. Gunakan Chrome/Edge.");
+        }
+
+        function startGame() {
+            document.getElementById('menuScreen').classList.remove('active');
+            document.getElementById('gameScreen').classList.add('active');
+            gameActive = true;
+            resetGameState();
+            loadWord(1);
+        }
+
+        function resetGameState() {
+            currentLevel = 1;
+            heroHealth = 5;
+            monsterHealth = 10;
+            updateHealthBars();
+            document.getElementById('victoryScreen').style.display = 'none';
+            document.getElementById('defeatScreen').style.display = 'none';
+            document.getElementById('resultMessage').innerHTML = "";
+        }
+
+        function loadWord(level) {
+            document.getElementById('targetWord').innerText = gameData[level].word.toUpperCase();
+            document.getElementById('phoneticHint').innerText = gameData[level].phonetic;
+            document.getElementById('levelIndicator').innerText = `WORD ${level} / 10`;
+            document.getElementById('resultMessage').innerHTML = "";
+            stopMicUI();
+        }
+
+        function updateHealthBars() {
+            const heroPercent = (heroHealth / 5) * 100;
+            const monsterPercent = (monsterHealth / 10) * 100;
+
+            document.getElementById('heroHealthBar').style.width = heroPercent + '%';
+            document.getElementById('heroHealthText').innerText = `${heroHealth}/5`;
+            document.getElementById('monsterHealthBar').style.width = monsterPercent + '%';
+            document.getElementById('monsterHealthText').innerText = `${monsterHealth}/10`;
+            document.getElementById('attemptsCount').innerText = heroHealth;
+        }
+
+        function heroShoot() {
+            const heroWrapper = document.getElementById('heroWrapper');
+            const monsterWrapper = document.getElementById('monsterWrapper');
+            const muzzle = document.getElementById('heroMuzzle');
+            const battleScene = document.getElementById('battleScene');
+
+            // Muzzle flash
+            muzzle.style.right = '-40px';
+            muzzle.style.top = '40%';
+            muzzle.classList.add('active');
+            setTimeout(() => muzzle.classList.remove('active'), 100);
+
+            // Hero recoil
+            heroWrapper.classList.add('shooting');
+            setTimeout(() => heroWrapper.classList.remove('shooting'), 200);
+
+            // Projectile
+            const projectile = document.createElement('div');
+            projectile.className = 'projectile';
+            const heroRect = heroWrapper.getBoundingClientRect();
+            const sceneRect = battleScene.getBoundingClientRect();
+            projectile.style.left = (heroRect.right - sceneRect.left) + 'px';
+            projectile.style.top = (heroRect.top - sceneRect.top + heroRect.height * 0.4) + 'px';
+            battleScene.appendChild(projectile);
+
+            // Animate projectile
+            const monsterRect = monsterWrapper.getBoundingClientRect();
+            const targetX = monsterRect.left - sceneRect.left + 20;
+
+            projectile.animate([
+                { left: (heroRect.right - sceneRect.left) + 'px' },
+                { left: targetX + 'px' }
+            ], {
+                duration: 300,
+                easing: 'ease-out'
+            }).onfinish = () => {
+                projectile.remove();
+
+                // Explosion on monster
+                const explosion = document.createElement('div');
+                explosion.className = 'explosion';
+                explosion.style.left = (targetX - 30) + 'px';
+                explosion.style.top = (monsterRect.top - sceneRect.top + 50) + 'px';
+                battleScene.appendChild(explosion);
+                setTimeout(() => explosion.remove(), 600);
+
+                // Monster hit animation
+                monsterWrapper.classList.add('hit');
+                setTimeout(() => monsterWrapper.classList.remove('hit'), 300);
+
+                // Damage popup
+                showDamagePopup(monsterWrapper, '-1', 'damage-monster');
+            };
+        }
+
+        function monsterShoot() {
+            const heroWrapper = document.getElementById('heroWrapper');
+            const monsterWrapper = document.getElementById('monsterWrapper');
+            const muzzle = document.getElementById('monsterMuzzle');
+            const battleScene = document.getElementById('battleScene');
+
+            // Muzzle flash
+            muzzle.classList.add('active');
+            setTimeout(() => muzzle.classList.remove('active'), 100);
+
+            // Projectile from monster
+            const projectile = document.createElement('div');
+            projectile.className = 'projectile projectile-monster';
+            const monsterRect = monsterWrapper.getBoundingClientRect();
+            const sceneRect = battleScene.getBoundingClientRect();
+            projectile.style.left = (monsterRect.left - sceneRect.left) + 'px';
+            projectile.style.top = (monsterRect.top - sceneRect.top + monsterRect.height * 0.4) + 'px';
+            battleScene.appendChild(projectile);
+
+            // Animate projectile
+            const heroRect = heroWrapper.getBoundingClientRect();
+            const targetX = heroRect.right - sceneRect.left - 20;
+
+            projectile.animate([
+                { left: (monsterRect.left - sceneRect.left) + 'px' },
+                { left: targetX + 'px' }
+            ], {
+                duration: 300,
+                easing: 'ease-out'
+            }).onfinish = () => {
+                projectile.remove();
+
+                // Explosion on hero
+                const explosion = document.createElement('div');
+                explosion.className = 'explosion';
+                explosion.style.left = (targetX - 30) + 'px';
+                explosion.style.top = (heroRect.top - sceneRect.top + 50) + 'px';
+                battleScene.appendChild(explosion);
+                setTimeout(() => explosion.remove(), 600);
+
+                // Hero hit animation
+                heroWrapper.classList.add('hit');
+                setTimeout(() => heroWrapper.classList.remove('hit'), 300);
+
+                // Screen shake
+                document.querySelector('.game-container').classList.add('shake');
+                setTimeout(() => document.querySelector('.game-container').classList.remove('shake'), 400);
+
+                // Damage popup
+                showDamagePopup(heroWrapper, '-1', 'damage-hero');
+            };
+        }
+
+        function showDamagePopup(target, text, className) {
+            const battleScene = document.getElementById('battleScene');
+            const targetRect = target.getBoundingClientRect();
+            const sceneRect = battleScene.getBoundingClientRect();
+
+            const popup = document.createElement('div');
+            popup.className = `damage-popup ${className}`;
+            popup.innerText = text;
+            popup.style.left = (targetRect.left - sceneRect.left + targetRect.width / 2) + 'px';
+            popup.style.top = (targetRect.top - sceneRect.top) + 'px';
+            battleScene.appendChild(popup);
+            setTimeout(() => popup.remove(), 1000);
+        }
+
+        function toggleSpeech() {
+            if (!recognition || !gameActive) return;
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        }
+
+        function stopMicUI() {
+            isRecording = false;
+            const micBtn = document.getElementById('micBtn');
+            if (micBtn) {
+                micBtn.innerText = "🔫 FIRE (SPEAK)";
+                micBtn.classList.remove('recording');
+            }
+        }
+
+        function showVictory() {
+            gameActive = false;
+            setTimeout(() => {
+                document.getElementById('victoryScreen').style.display = 'flex';
+            }, 500);
+        }
+
+        function showDefeat() {
+            gameActive = false;
+            setTimeout(() => {
+                document.getElementById('defeatScreen').style.display = 'flex';
+            }, 500);
+        }
+
+        function resetGame() {
+            if (recognition && isRecording) recognition.stop();
+            resetGameState();
+            loadWord(1);
+            gameActive = true;
+        }
+    </script>
+</body>
+</html>
